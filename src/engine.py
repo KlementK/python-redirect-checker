@@ -19,8 +19,9 @@ class CheckResult:
         self.status = status
 
 
-TIMEOUT = 10.0
+TIMEOUT = 30.0
 DELAY_BETWEEN_REQUESTS = 0.75
+MAX_CONCURRENT_REQUESTS = 3
 
 
 async def check_redirect(
@@ -33,8 +34,15 @@ async def check_redirect(
             timeout=TIMEOUT,
         )
 
-        final_url = str(response.url).rstrip("/")
-        expected = str(expected_redirect).rstrip("/")
+        final_url = (
+            str(response.url).rstrip("/").replace("https://", "").replace("http://", "")
+        )
+        expected = (
+            str(expected_redirect)
+            .rstrip("/")
+            .replace("https://", "")
+            .replace("http://", "")
+        )
 
         status = CheckStatus.OK if final_url == expected else CheckStatus.FAIL
 
@@ -46,13 +54,18 @@ async def check_redirect(
 
 async def check_all_redirects(checks: list) -> list[CheckResult]:
     results = []
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-    async with httpx.AsyncClient() as client:
-        for check in checks:
+    async def check_with_semaphore(check):
+        async with semaphore:
             result = await check_redirect(
                 client, check.initial_url, check.expected_redirect
             )
-            results.append(result)
             await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
+            return result
+
+    async with httpx.AsyncClient() as client:
+        tasks = [check_with_semaphore(check) for check in checks]
+        results = await asyncio.gather(*tasks)
 
     return results
