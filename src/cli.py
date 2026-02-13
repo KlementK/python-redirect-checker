@@ -17,7 +17,13 @@ def main():
     for result in results:
         initial = format_url_for_display(str(result.initial_url))
         expected = format_url_for_display(str(result.expected_redirect))
-        print(f"{initial} - {expected} - {result.status.value}")
+
+        if result.status.value == "FAIL":
+            print(
+                f"{initial} - {expected} - {result.status.value} - {result.actual_redirect}"
+            )
+        else:
+            print(f"{initial} - {expected} - {result.status.value}")
 
 
 if __name__ == "__main__":

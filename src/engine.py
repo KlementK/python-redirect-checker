@@ -12,11 +12,16 @@ class CheckStatus(str, Enum):
 
 class CheckResult:
     def __init__(
-        self, initial_url: HttpUrl, expected_redirect: HttpUrl, status: CheckStatus
+        self,
+        initial_url: HttpUrl,
+        expected_redirect: HttpUrl,
+        status: CheckStatus,
+        actual_redirect: str | None = None,
     ):
         self.initial_url = initial_url
         self.expected_redirect = expected_redirect
         self.status = status
+        self.actual_redirect = actual_redirect
 
 
 TIMEOUT = 30.0
@@ -44,12 +49,18 @@ async def check_redirect(
             .replace("http://", "")
         )
 
-        status = CheckStatus.OK if final_url == expected else CheckStatus.FAIL
+        if final_url == expected:
+            status = CheckStatus.OK
+            actual_redirect = None
+        else:
+            status = CheckStatus.FAIL
+            actual_redirect = final_url
 
     except Exception:
         status = CheckStatus.ERROR
+        actual_redirect = None
 
-    return CheckResult(initial_url, expected_redirect, status)
+    return CheckResult(initial_url, expected_redirect, status, actual_redirect)
 
 
 async def check_all_redirects(checks: list) -> list[CheckResult]:
